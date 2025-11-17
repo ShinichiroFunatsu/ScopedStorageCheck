@@ -1,0 +1,126 @@
+# =========================
+# 1) Core: Android/Gradle/Compose
+# =========================
+# Gradle/Build
+.gradle/
+**/build/
+**/out/
+.cxx/
+.externalNativeBuild/
+captures/
+local.properties
+
+# APK/AAB など生成物
+*.apk
+*.aab
+*.ap_
+
+# Compose レポート（明示的に出力先を作った場合）
+compose-metrics/
+compose-reports/
+compose_compiler/
+
+# Lint/テスト出力（ベースラインはコミット推奨のため除外しない）
+**/lint-results*.xml
+**/lint-results-*.sarif
+**/lint-reports/
+**/outputs/
+**/jacoco/
+**/coverage/
+.kotlinc/
+obj/
+
+# 署名・機密情報（絶対コミットしない）
+*.jks
+*.keystore
+*.jks.*
+*.keystore.*
+keystore.properties
+signing.properties
+*.pem
+*.der
+*.p12
+*.pfx
+*.asc
+*.gpg
+*.gpg-key
+.env
+.env.*
+*.env
+.secrets/
+secrets.*
+*.credentials.json
+credentials.json
+*service-account*.json
+google-credentials.json
+
+# Firebase / Crashlytics（生成物）
+crashlytics-build.properties
+fabric.properties
+# ※ google-services.json は CI/他開発者のため原則コミット推奨
+# ポリシーでNGなら以下を有効化
+# app/google-services.json
+# GoogleService-Info.plist
+
+# IDE（丸ごと無視。下で例外を追加可能）
+*.iml
+.idea/
+
+# OSノイズ
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+*.log
+*.orig
+*.rej
+tmp/
+temp/
+.swp
+.swo
+
+# =========================
+# 2) IDE settings to share (uncomment to track)
+# =========================
+# ↓必要なら共有したい設定だけ例外解除
+# !.idea/codeStyles/
+# !.idea/inspectionProfiles/
+# !.idea/runConfigurations/
+# # チームでVCS設定も共有したい場合
+# !.idea/vcs.xml
+
+# =========================
+# 3) Optional: ツール連携/スクリプト
+# =========================
+# JetBrains Fleet
+# .fleet/
+
+# VS Code / Cursor / AI補助エディタ等
+# .vscode/
+# .cursor/
+# .codeium/
+# .aider*
+# .continue/
+
+# Node（スクリプトや配布自動化で使う場合）
+# node_modules/
+# npm-debug.log*
+# yarn-error.log
+# .pnpm-debug.log
+# dist/
+
+# Python（分析/ツール用）
+# .venv/
+# venv/
+# __pycache__/
+# *.py[cod]
+# .ipynb_checkpoints/
+
+# Fastlane
+# fastlane/report.xml
+# fastlane/Preview.html
+# fastlane/screenshots/
+
+# レポート/カバレッジ（Kover 等で個別に生成した場合）
+# **/kover/
+# **/reports/
