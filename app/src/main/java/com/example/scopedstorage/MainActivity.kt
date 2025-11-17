@@ -36,8 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import coil.ImageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import com.bumptech.glide.Glide
 import com.example.scopedstorage.ui.theme.ScopedStorageCheckTheme
 import java.io.File
+import java.io.FileInputStream
+import kotlinx.coroutines.runBlocking
 
 private const val LogTag = "MainActivity"
 
@@ -122,11 +128,38 @@ private fun EnvironmentInfoArea(environmentInfo: EnvironmentInfo) {
 @Composable
 private fun ImageResultList(imageResults: List<ImageTestResult>) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(imageResults) { result ->
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
-                Text(text = "dataPath: ${result.dataPath ?: "null"}")
-                Text(text = "fileExists: ${result.fileExists}")
+        items(imageResults, key = { it.id }) { result ->
+            ImageResultItem(result = result)
+        }
+    }
+}
+
+@Composable
+private fun ImageResultItem(result: ImageTestResult) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
+        Text(text = "dataPath: ${result.dataPath ?: "null"}")
+        Text(
+            text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}"
+        )
+        Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
+        Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()} / File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
+        Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
+        Text(text = "Coil(Uri/File): ${result.coilUriSuccess.toCheckMark()} / ${result.coilFileSuccess.toCheckMark()}")
+        Button(onClick = { expanded = !expanded }) {
+            Text(text = if (expanded) "Hide Details" else "Details")
+        }
+        if (expanded) {
+            Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
+                if (result.errors.isEmpty()) {
+                    Text(text = "No errors")
+                } else {
+                    result.errors.forEach { error ->
+                        Text(text = error)
+                    }
+                }
             }
         }
     }
@@ -227,6 +260,7 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
     )
 
     val contentResolver = context.contentResolver
+    val imageLoader = ImageLoader(context)
     val results = mutableListOf<ImageTestResult>()
     val cursor = contentResolver.query(
         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -257,6 +291,103 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
 
             val type = classifyImageType(dataPath)
             val fileExists = dataPath?.let { File(it).exists() } ?: false
+            val errors = mutableListOf<String>()
+
+            val canOpenUriInputStream = try {
+                contentResolver.openInputStream(uri)?.use { }
+                Log.i(LogTag, "[SUCCESS] Uri InputStream: $uri")
+                true
+            } catch (exception: Exception) {
+                val message = exception.toErrorMessage()
+                errors.add(message)
+                Log.e(LogTag, "[FAILED] Uri InputStream: $message")
+                false
+            }
+
+            val canOpenFileInputStream = if (dataPath != null) {
+                try {
+                    FileInputStream(File(dataPath)).use { }
+                    Log.i(LogTag, "[SUCCESS] File InputStream: $dataPath")
+                    true
+                } catch (exception: Exception) {
+                    val message = exception.toErrorMessage()
+                    errors.add(message)
+                    Log.e(LogTag, "[FAILED] File InputStream: $message")
+                    false
+                }
+            } else {
+                false
+            }
+
+            val glideUriSuccess = try {
+                Glide.with(context).load(uri).submit().get()
+                Log.i(LogTag, "[SUCCESS] Glide Uri: $uri")
+                true
+            } catch (exception: Exception) {
+                val message = exception.toErrorMessage()
+                errors.add(message)
+                Log.e(LogTag, "[FAILED] Glide Uri: $message")
+                false
+            }
+
+            val glideFileSuccess = if (dataPath != null) {
+                try {
+                    Glide.with(context).load(File(dataPath)).submit().get()
+                    Log.i(LogTag, "[SUCCESS] Glide File: $dataPath")
+                    true
+                } catch (exception: Exception) {
+                    val message = exception.toErrorMessage()
+                    errors.add(message)
+                    Log.e(LogTag, "[FAILED] Glide File: $message")
+                    false
+                }
+            } else {
+                false
+            }
+
+            val coilUriSuccess = try {
+                val request = ImageRequest.Builder(context)
+                    .data(uri)
+                    .build()
+                val result = runBlocking { imageLoader.execute(request) }
+                val success = result is SuccessResult
+                if (success) {
+                    Log.i(LogTag, "[SUCCESS] Coil Uri: $uri")
+                } else {
+                    Log.e(LogTag, "[FAILED] Coil Uri: unexpected result")
+                    errors.add("Coil: unexpected result")
+                }
+                success
+            } catch (exception: Exception) {
+                val message = exception.toErrorMessage()
+                errors.add(message)
+                Log.e(LogTag, "[FAILED] Coil Uri: $message")
+                false
+            }
+
+            val coilFileSuccess = if (dataPath != null) {
+                try {
+                    val request = ImageRequest.Builder(context)
+                        .data(File(dataPath))
+                        .build()
+                    val result = runBlocking { imageLoader.execute(request) }
+                    val success = result is SuccessResult
+                    if (success) {
+                        Log.i(LogTag, "[SUCCESS] Coil File: $dataPath")
+                    } else {
+                        Log.e(LogTag, "[FAILED] Coil File: unexpected result")
+                        errors.add("Coil: unexpected result")
+                    }
+                    success
+                } catch (exception: Exception) {
+                    val message = exception.toErrorMessage()
+                    errors.add(message)
+                    Log.e(LogTag, "[FAILED] Coil File: $message")
+                    false
+                }
+            } else {
+                false
+            }
 
             results.add(
                 ImageTestResult(
@@ -270,13 +401,13 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
                     dateModified = dateModified,
                     size = size,
                     fileExists = fileExists,
-                    canOpenUriInputStream = false,
-                    canOpenFileInputStream = false,
-                    glideUriSuccess = false,
-                    glideFileSuccess = false,
-                    coilUriSuccess = false,
-                    coilFileSuccess = false,
-                    errors = emptyList()
+                    canOpenUriInputStream = canOpenUriInputStream,
+                    canOpenFileInputStream = canOpenFileInputStream,
+                    glideUriSuccess = glideUriSuccess,
+                    glideFileSuccess = glideFileSuccess,
+                    coilUriSuccess = coilUriSuccess,
+                    coilFileSuccess = coilFileSuccess,
+                    errors = errors
                 )
             )
         }
@@ -303,4 +434,17 @@ private fun android.database.Cursor.getStringOrNull(index: Int?): String? {
 private fun android.database.Cursor.getLongOrNull(index: Int?): Long? {
     if (index == null || index == -1) return null
     return getLong(index)
+}
+
+// 成否を視覚的に示すためのシンプルな拡張関数
+private fun Boolean.toCheckMark(): String = if (this) "✓" else "✗"
+
+// 例外の先頭行だけを抽出して短く整形する拡張関数
+private fun Throwable.toErrorMessage(): String {
+    val messageHead = message?.lineSequence()?.firstOrNull().orEmpty()
+    return if (messageHead.isNotEmpty()) {
+        "${this::class.java.simpleName}: $messageHead"
+    } else {
+        this::class.java.simpleName
+    }
 }
