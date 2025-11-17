@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +45,9 @@ import com.example.scopedstorage.ui.theme.ScopedStorageCheckTheme
 import java.io.File
 import java.io.FileInputStream
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val LogTag = "MainActivity"
 
@@ -55,6 +59,7 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 var environmentInfo by remember { mutableStateOf(buildEnvironmentInfo(context)) }
                 var imageResults by remember { mutableStateOf(emptyList<ImageTestResult>()) }
+                val coroutineScope = rememberCoroutineScope()
 
                 val permissionLauncher = rememberPermissionLauncher(environmentInfoUpdater = {
                     environmentInfo = buildEnvironmentInfo(context)
@@ -71,7 +76,10 @@ class MainActivity : ComponentActivity() {
                             permissionLauncher.launch(requestPermissions)
                         },
                         onExecuteImageSearch = {
-                            imageResults = queryImages(context)
+                            coroutineScope.launch {
+                                // Glide の submit().get() をメインスレッドで実行すると例外になるため、I/O スレッドでクエリを実行する
+                                imageResults = withContext(Dispatchers.IO) { queryImages(context) }
+                            }
                         }
                     )
                 }
