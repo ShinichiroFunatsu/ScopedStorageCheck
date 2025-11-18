@@ -172,7 +172,8 @@ private fun ImageResultItem(result: ImageTestResult) {
             Text(text = "dataPath: ${result.dataPath ?: "null"}")
             Text(text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}")
             Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
-            Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()} / File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
+            Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()}")
+            Text(text = "File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
             Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
             Text(text = "Coil(Uri/File): ${result.coilUriSuccess.toCheckMark()} / ${result.coilFileSuccess.toCheckMark()}")
             Button(onClick = { expanded = !expanded }) {
