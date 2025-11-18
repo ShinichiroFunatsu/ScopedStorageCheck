@@ -44,6 +44,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil.ImageLoader
@@ -171,11 +175,40 @@ private fun ImageResultItem(result: ImageTestResult) {
             Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
             Text(text = "dataPath: ${result.dataPath ?: "null"}")
             Text(text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}")
-            Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
-            Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()}")
-            Text(text = "File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
-            Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
-            Text(text = "Coil(Uri/File): ${result.coilUriSuccess.toCheckMark()} / ${result.coilFileSuccess.toCheckMark()}")
+            Text(
+                text = buildAnnotatedString {
+                    append("FileExists: ")
+                    append(result.fileExists.toCheckMark())
+                }
+            )
+            Text(
+                text = buildAnnotatedString {
+                    append("Uri I/O: ")
+                    append(result.canOpenUriInputStream.toCheckMark())
+                }
+            )
+            Text(
+                text = buildAnnotatedString {
+                    append("File I/O: ")
+                    append(result.canOpenFileInputStream.toCheckMark())
+                }
+            )
+            Text(
+                text = buildAnnotatedString {
+                    append("Glide(Uri/File): ")
+                    append(result.glideUriSuccess.toCheckMark())
+                    append(" / ")
+                    append(result.glideFileSuccess.toCheckMark())
+                }
+            )
+            Text(
+                text = buildAnnotatedString {
+                    append("Coil(Uri/File): ")
+                    append(result.coilUriSuccess.toCheckMark())
+                    append(" / ")
+                    append(result.coilFileSuccess.toCheckMark())
+                }
+            )
             Button(onClick = { expanded = !expanded }) {
                 Text(text = if (expanded) "Hide Details" else "Details")
             }
@@ -500,8 +533,16 @@ private fun android.database.Cursor.getLongOrNull(index: Int?): Long? {
     return getLong(index)
 }
 
-// 成否を視覚的に示すためのシンプルな拡張関数
-private fun Boolean.toCheckMark(): String = if (this) "✓" else "✗"
+// 成否を視覚的に示すためのシンプルな拡張関数（✗のみ赤色で表示）
+private fun Boolean.toCheckMark(): AnnotatedString = buildAnnotatedString {
+    if (this@toCheckMark) {
+        append("✓")
+    } else {
+        withStyle(style = SpanStyle(color = Color.Red)) {
+            append("✗")
+        }
+    }
+}
 
 // 例外の先頭行だけを抽出して短く整形する拡張関数
 private fun Throwable.toErrorMessage(): String {
