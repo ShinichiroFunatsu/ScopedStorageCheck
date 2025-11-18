@@ -222,7 +222,7 @@ private fun rememberPermissionLauncher(environmentInfoUpdater: () -> Unit) =
 
 private fun buildEnvironmentInfo(context: Context): EnvironmentInfo {
     val sdkInt = Build.VERSION.SDK_INT
-    val requestLegacyValue = checkLegacyExternalStorageStatus(context)
+    val requestLegacyValue = checkLegacyExternalStorageStatus()
     return EnvironmentInfo(
         androidVersion = Build.VERSION.RELEASE ?: "Unknown",
         apiLevel = sdkInt,
@@ -258,7 +258,7 @@ private fun Context.permissionState(permission: String): String {
     return if (granted) "GRANTED" else "DENIED"
 }
 
-fun checkLegacyExternalStorageStatus(context: Context): String {
+fun checkLegacyExternalStorageStatus(): String {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         Environment.isExternalStorageLegacy().toString()
     } else {
