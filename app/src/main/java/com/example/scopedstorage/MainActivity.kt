@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,7 @@ import java.io.File
 import java.io.FileInputStream
 
 private const val LogTag = "MainActivity"
+private val ListItemRadius = 12.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -169,7 +171,10 @@ private fun ImageResultItem(result: ImageTestResult) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(errorBackgroundColor)
+                .background(
+                    color = errorBackgroundColor,
+                    shape = RoundedCornerShape(ListItemRadius)
+                )
                 .padding(12.dp)
         ) {
             Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
