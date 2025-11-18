@@ -14,6 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,8 +36,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil.ImageLoader
@@ -146,26 +151,52 @@ private fun ImageResultList(imageResults: List<ImageTestResult>) {
 private fun ImageResultItem(result: ImageTestResult) {
     var expanded by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
-        Text(text = "dataPath: ${result.dataPath ?: "null"}")
-        Text(text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}")
-        Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
-        Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()} / File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
-        Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
-        Text(text = "Coil(Uri/File): ${result.coilUriSuccess.toCheckMark()} / ${result.coilFileSuccess.toCheckMark()}")
-        Button(onClick = { expanded = !expanded }) {
-            Text(text = if (expanded) "Hide Details" else "Details")
-        }
-        if (expanded) {
-            Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
-                if (result.errors.isEmpty()) {
-                    Text(text = "No errors")
-                } else {
-                    result.errors.forEach { error ->
-                        Text(text = error)
+    val hasErrors = result.errors.isNotEmpty()
+    val errorBackgroundColor = if (hasErrors) {
+        Color.Red.copy(alpha = 0.2f)
+    } else {
+        Color.Transparent
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(errorBackgroundColor)
+                .padding(12.dp)
+        ) {
+            Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
+            Text(text = "dataPath: ${result.dataPath ?: "null"}")
+            Text(
+                text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}"
+            )
+            Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
+            Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()} / File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
+            Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
+            Text(text = "Coil(Uri/File): ${result.coilUriSuccess.toCheckMark()} / ${result.coilFileSuccess.toCheckMark()}")
+            Button(onClick = { expanded = !expanded }) {
+                Text(text = if (expanded) "Hide Details" else "Details")
+            }
+            if (expanded) {
+                Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
+                    if (result.errors.isEmpty()) {
+                        Text(text = "No errors")
+                    } else {
+                        result.errors.forEach { error ->
+                            Text(text = error)
+                        }
                     }
                 }
+            }
+        }
+
+        if (hasErrors) {
+            Badge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Text(text = result.errors.size.toString())
             }
         }
     }
