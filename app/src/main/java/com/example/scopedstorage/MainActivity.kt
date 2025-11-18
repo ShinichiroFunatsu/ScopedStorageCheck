@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -202,16 +203,24 @@ private fun ImageResultItem(result: ImageTestResult) {
                 text = buildAnnotatedString {
                     append("Glide(Uri/File): ")
                     append(result.glideUriSuccess.toCheckMark())
+                    append(" ")
+                    append(result.glideUriDurationMs.toDurationLabel())
                     append(" / ")
                     append(result.glideFileSuccess.toCheckMark())
+                    append(" ")
+                    append(result.glideFileDurationMs.toDurationLabel())
                 }
             )
             Text(
                 text = buildAnnotatedString {
                     append("Coil(Uri/File): ")
                     append(result.coilUriSuccess.toCheckMark())
+                    append(" ")
+                    append(result.coilUriDurationMs.toDurationLabel())
                     append(" / ")
                     append(result.coilFileSuccess.toCheckMark())
+                    append(" ")
+                    append(result.coilFileDurationMs.toDurationLabel())
                 }
             )
             Button(onClick = { expanded = !expanded }) {
@@ -425,52 +434,76 @@ private fun queryImages(context: Context): List<ImageTestResult> {
                 false
             }
 
+            var glideUriError: String? = null
+            val glideUriStart = SystemClock.elapsedRealtime()
             val glideUriSuccess = try {
                 Glide.with(context).load(uri).submit().get()
-                Log.i(LogTag, "[SUCCESS] Glide Uri: $uri")
                 true
             } catch (exception: Exception) {
                 val message = exception.toErrorMessage()
                 errors.add(message)
-                Log.e(LogTag, "[FAILED] Glide Uri: $message")
+                glideUriError = message
                 false
             }
+            val glideUriDurationMs = SystemClock.elapsedRealtime() - glideUriStart
+            if (glideUriSuccess) {
+                Log.i(LogTag, "[SUCCESS] Glide Uri: $uri (${glideUriDurationMs}ms)")
+            } else {
+                Log.e(LogTag, "[FAILED] Glide Uri: ${glideUriError ?: "unknown error"} (${glideUriDurationMs}ms)")
+            }
 
+            var glideFileError: String? = null
+            val glideFileStart = SystemClock.elapsedRealtime()
             val glideFileSuccess = if (dataPath != null) {
                 try {
                     Glide.with(context).load(File(dataPath)).submit().get()
-                    Log.i(LogTag, "[SUCCESS] Glide File: $dataPath")
                     true
                 } catch (exception: Exception) {
                     val message = exception.toErrorMessage()
                     errors.add(message)
-                    Log.e(LogTag, "[FAILED] Glide File: $message")
+                    glideFileError = message
                     false
                 }
             } else {
                 false
             }
+            val glideFileDurationMs = if (dataPath != null) SystemClock.elapsedRealtime() - glideFileStart else null
+            if (dataPath != null) {
+                if (glideFileSuccess) {
+                    Log.i(LogTag, "[SUCCESS] Glide File: $dataPath (${glideFileDurationMs}ms)")
+                } else {
+                    Log.e(LogTag, "[FAILED] Glide File: ${glideFileError ?: "unknown error"} (${glideFileDurationMs}ms)")
+                }
+            }
 
+            var coilUriError: String? = null
+            val coilUriStart = SystemClock.elapsedRealtime()
             val coilUriSuccess = try {
                 val request = ImageRequest.Builder(context)
                     .data(uri)
                     .build()
                 val result = runBlocking { imageLoader.execute(request) }
                 val success = result is SuccessResult
-                if (success) {
-                    Log.i(LogTag, "[SUCCESS] Coil Uri: $uri")
-                } else {
-                    Log.e(LogTag, "[FAILED] Coil Uri: unexpected result")
+                if (!success) {
+                    coilUriError = "Coil: unexpected result"
                     errors.add("Coil: unexpected result")
                 }
                 success
             } catch (exception: Exception) {
                 val message = exception.toErrorMessage()
                 errors.add(message)
-                Log.e(LogTag, "[FAILED] Coil Uri: $message")
+                coilUriError = message
                 false
             }
+            val coilUriDurationMs = SystemClock.elapsedRealtime() - coilUriStart
+            if (coilUriSuccess) {
+                Log.i(LogTag, "[SUCCESS] Coil Uri: $uri (${coilUriDurationMs}ms)")
+            } else {
+                Log.e(LogTag, "[FAILED] Coil Uri: ${coilUriError ?: "unknown error"} (${coilUriDurationMs}ms)")
+            }
 
+            var coilFileError: String? = null
+            val coilFileStart = SystemClock.elapsedRealtime()
             val coilFileSuccess = if (dataPath != null) {
                 try {
                     val request = ImageRequest.Builder(context)
@@ -478,21 +511,27 @@ private fun queryImages(context: Context): List<ImageTestResult> {
                         .build()
                     val result = runBlocking { imageLoader.execute(request) }
                     val success = result is SuccessResult
-                    if (success) {
-                        Log.i(LogTag, "[SUCCESS] Coil File: $dataPath")
-                    } else {
-                        Log.e(LogTag, "[FAILED] Coil File: unexpected result")
+                    if (!success) {
+                        coilFileError = "Coil: unexpected result"
                         errors.add("Coil: unexpected result")
                     }
                     success
                 } catch (exception: Exception) {
                     val message = exception.toErrorMessage()
                     errors.add(message)
-                    Log.e(LogTag, "[FAILED] Coil File: $message")
+                    coilFileError = message
                     false
                 }
             } else {
                 false
+            }
+            val coilFileDurationMs = if (dataPath != null) SystemClock.elapsedRealtime() - coilFileStart else null
+            if (dataPath != null) {
+                if (coilFileSuccess) {
+                    Log.i(LogTag, "[SUCCESS] Coil File: $dataPath (${coilFileDurationMs}ms)")
+                } else {
+                    Log.e(LogTag, "[FAILED] Coil File: ${coilFileError ?: "unknown error"} (${coilFileDurationMs}ms)")
+                }
             }
             ImageTestResult(
                 id = it.id,
@@ -509,8 +548,12 @@ private fun queryImages(context: Context): List<ImageTestResult> {
                 canOpenFileInputStream = canOpenFileInputStream,
                 glideUriSuccess = glideUriSuccess,
                 glideFileSuccess = glideFileSuccess,
+                glideUriDurationMs = glideUriDurationMs,
+                glideFileDurationMs = glideFileDurationMs,
                 coilUriSuccess = coilUriSuccess,
                 coilFileSuccess = coilFileSuccess,
+                coilUriDurationMs = coilUriDurationMs,
+                coilFileDurationMs = coilFileDurationMs,
                 errors = errors
             )
         }
@@ -548,6 +591,9 @@ private fun Boolean.toCheckMark(): AnnotatedString = buildAnnotatedString {
         }
     }
 }
+
+// ロード時間を ms 単位で表示する拡張関数
+private fun Long?.toDurationLabel(): String = this?.let { "${it}ms" } ?: "-"
 
 // 例外の先頭行だけを抽出して短く整形する拡張関数
 private fun Throwable.toErrorMessage(): String {

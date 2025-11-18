@@ -18,8 +18,12 @@ data class ImageTestResult(
     val canOpenFileInputStream: Boolean,
     val glideUriSuccess: Boolean,
     val glideFileSuccess: Boolean,
+    val glideUriDurationMs: Long?,
+    val glideFileDurationMs: Long?,
     val coilUriSuccess: Boolean,
     val coilFileSuccess: Boolean,
+    val coilUriDurationMs: Long?,
+    val coilFileDurationMs: Long?,
     val errors: List<String>
 )
 
