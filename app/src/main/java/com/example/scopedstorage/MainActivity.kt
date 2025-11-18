@@ -3,18 +3,18 @@ package com.example.scopedstorage
 import android.Manifest
 import android.content.ContentUris
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,8 +38,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil.ImageLoader
@@ -131,7 +131,7 @@ private fun EnvironmentInfoArea(environmentInfo: EnvironmentInfo) {
         Text(text = "Android Version: ${environmentInfo.androidVersion}", style = MaterialTheme.typography.bodyLarge)
         Text(text = "API Level: ${environmentInfo.apiLevel}")
         Text(text = "Target SDK: 35")
-        Text(text = "requestLegacyExternalStorage: ${environmentInfo.requestLegacyExternalStorage}")
+        Text(text = "scoped storage: ${environmentInfo.isScopedStorage}")
         Text(text = "READ_EXTERNAL_STORAGE: ${environmentInfo.readExternalStorage}")
         Text(text = "READ_MEDIA_IMAGES: ${environmentInfo.readMediaImages}")
         Text(text = "READ_MEDIA_VISUAL_USER_SELECTED: ${environmentInfo.readMediaVisualUserSelected}")
@@ -223,11 +223,11 @@ private fun rememberPermissionLauncher(environmentInfoUpdater: () -> Unit) =
 
 private fun buildEnvironmentInfo(context: Context): EnvironmentInfo {
     val sdkInt = Build.VERSION.SDK_INT
-    val requestLegacyValue = resolveRequestLegacyValue(context)
+    val requestLegacyValue = checkLegacyExternalStorageStatus(context)
     return EnvironmentInfo(
         androidVersion = Build.VERSION.RELEASE ?: "Unknown",
         apiLevel = sdkInt,
-        requestLegacyExternalStorage = requestLegacyValue,
+        isScopedStorage = requestLegacyValue,
         readExternalStorage = context.permissionStatusForLegacy(sdkInt),
         readMediaImages = context.permissionStatusForMediaImages(sdkInt),
         readMediaVisualUserSelected = context.permissionStatusForVisualUserSelected(sdkInt)
@@ -260,24 +260,21 @@ private fun Context.permissionState(permission: String): String {
     return if (granted) "GRANTED" else "DENIED"
 }
 
-private fun resolveRequestLegacyValue(context: Context): String {
-    val appInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        context.packageManager.getApplicationInfo(
-            context.packageName,
-            PackageManager.ApplicationInfoFlags.of(0)
-        )
+
+fun checkLegacyExternalStorageStatus(context: android.content.Context): String {
+    val tag = "StorageCheck"
+
+    // 現在の targetSdkVersion の取得
+    val targetSdk = context.applicationInfo.targetSdkVersion
+    Log.d(tag, "Target SDK Version: $targetSdk")
+
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        Environment.isExternalStorageLegacy().toString()
     } else {
-        @Suppress("DEPRECATION")
-        context.packageManager.getApplicationInfo(context.packageName, 0)
+        "N/A(SDK < Q)"
     }
-
-    val legacyFlagValue = ApplicationInfo::class.java.fields.firstOrNull { field ->
-        field.name == "FLAG_REQUEST_LEGACY_EXTERNAL_STORAGE"
-    }?.getInt(null) ?: return "N/A"
-
-    val flagEnabled = appInfo.flags and legacyFlagValue != 0
-    return flagEnabled.toString()
 }
+
 // adb shell dumpsys package com.example.scopedstorage | grep requestLegacy
 private fun logPermissionStates(environmentInfo: EnvironmentInfo) {
     Log.i(LogTag, "[INFO] READ_EXTERNAL_STORAGE: ${environmentInfo.readExternalStorage}")

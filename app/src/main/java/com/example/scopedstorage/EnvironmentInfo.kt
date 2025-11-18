@@ -4,7 +4,7 @@ package com.example.scopedstorage
 data class EnvironmentInfo(
     val androidVersion: String,
     val apiLevel: Int,
-    val requestLegacyExternalStorage: String,
+    val isScopedStorage: String,
     val readExternalStorage: String,
     val readMediaImages: String,
     val readMediaVisualUserSelected: String
