@@ -1,6 +1,10 @@
+@file:Suppress("ObjectPropertyName", "NonAsciiCharacters")
+
 package com.example.scopedstorage
 
-import android.Manifest
+import android.Manifest.permission.READ_EXTERNAL_STORAGE
+import android.Manifest.permission.READ_MEDIA_IMAGES
+import android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
@@ -65,11 +69,10 @@ class MainActivity : ComponentActivity() {
                 var environmentInfo by remember { mutableStateOf(buildEnvironmentInfo(context)) }
                 var imageResults by remember { mutableStateOf(emptyList<ImageTestResult>()) }
                 val coroutineScope = rememberCoroutineScope()
-
-                val permissionLauncher = rememberPermissionLauncher(environmentInfoUpdater = {
+                val permissionLauncher = rememberPermissionLauncher {
                     environmentInfo = buildEnvironmentInfo(context)
                     logPermissionStates(environmentInfo)
-                })
+                }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MainScreen(
@@ -77,7 +80,7 @@ class MainActivity : ComponentActivity() {
                         environmentInfo = environmentInfo,
                         imageResults = imageResults,
                         onRequestPermission = {
-                            val requestPermissions = requiredPermissionsForSdk(Build.VERSION.SDK_INT)
+                            val requestPermissions = requiredImagePerms().toTypedArray()
                             permissionLauncher.launch(requestPermissions)
                         },
                         onExecuteImageSearch = {
@@ -167,9 +170,7 @@ private fun ImageResultItem(result: ImageTestResult) {
         ) {
             Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
             Text(text = "dataPath: ${result.dataPath ?: "null"}")
-            Text(
-                text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}"
-            )
+            Text(text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}")
             Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
             Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()} / File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
             Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
@@ -202,15 +203,13 @@ private fun ImageResultItem(result: ImageTestResult) {
     }
 }
 
-private fun requiredPermissionsForSdk(sdkInt: Int): Array<String> {
-    return when (sdkInt) {
-        in 26..32 -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        in 33..34 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
-        else -> arrayOf(
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
-        )
-    }
+internal val `33＋` = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+internal val `34＋` = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+
+internal fun requiredImagePerms(): List<String> = when {
+    `34＋` -> listOf(READ_MEDIA_IMAGES, READ_MEDIA_VISUAL_USER_SELECTED)
+    `33＋` -> listOf(READ_MEDIA_IMAGES)
+    else -> listOf(READ_EXTERNAL_STORAGE)
 }
 
 @Composable
@@ -228,30 +227,29 @@ private fun buildEnvironmentInfo(context: Context): EnvironmentInfo {
         androidVersion = Build.VERSION.RELEASE ?: "Unknown",
         apiLevel = sdkInt,
         isScopedStorage = requestLegacyValue,
-        readExternalStorage = context.permissionStatusForLegacy(sdkInt),
-        readMediaImages = context.permissionStatusForMediaImages(sdkInt),
-        readMediaVisualUserSelected = context.permissionStatusForVisualUserSelected(sdkInt)
+        readExternalStorage = context.permissionStatusForLegacy(),
+        readMediaImages = context.permissionStatusForMediaImages(),
+        readMediaVisualUserSelected = context.permissionStatusForVisualUserSelected()
     )
 }
 
-private fun Context.permissionStatusForLegacy(sdkInt: Int): String {
-    return when (sdkInt) {
-        in 26..32 -> permissionState(Manifest.permission.READ_EXTERNAL_STORAGE)
-        else -> "N/A"
+private fun Context.permissionStatusForLegacy(): String {
+    return permissionState(READ_EXTERNAL_STORAGE)
+}
+
+private fun Context.permissionStatusForMediaImages(): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        permissionState(READ_MEDIA_IMAGES)
+    } else {
+        "N/A"
     }
 }
 
-private fun Context.permissionStatusForMediaImages(sdkInt: Int): String {
-    return when (sdkInt) {
-        in 33..Int.MAX_VALUE -> permissionState(Manifest.permission.READ_MEDIA_IMAGES)
-        else -> "N/A"
-    }
-}
-
-private fun Context.permissionStatusForVisualUserSelected(sdkInt: Int): String {
-    return when (sdkInt) {
-        in 35..Int.MAX_VALUE -> permissionState(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        else -> "N/A"
+private fun Context.permissionStatusForVisualUserSelected(): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        permissionState(READ_MEDIA_VISUAL_USER_SELECTED)
+    } else {
+        "N/A"
     }
 }
 
@@ -260,14 +258,7 @@ private fun Context.permissionState(permission: String): String {
     return if (granted) "GRANTED" else "DENIED"
 }
 
-
-fun checkLegacyExternalStorageStatus(context: android.content.Context): String {
-    val tag = "StorageCheck"
-
-    // 現在の targetSdkVersion の取得
-    val targetSdk = context.applicationInfo.targetSdkVersion
-    Log.d(tag, "Target SDK Version: $targetSdk")
-
+fun checkLegacyExternalStorageStatus(context: Context): String {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         Environment.isExternalStorageLegacy().toString()
     } else {
@@ -275,14 +266,13 @@ fun checkLegacyExternalStorageStatus(context: android.content.Context): String {
     }
 }
 
-// adb shell dumpsys package com.example.scopedstorage | grep requestLegacy
 private fun logPermissionStates(environmentInfo: EnvironmentInfo) {
     Log.i(LogTag, "[INFO] READ_EXTERNAL_STORAGE: ${environmentInfo.readExternalStorage}")
     Log.i(LogTag, "[INFO] READ_MEDIA_IMAGES: ${environmentInfo.readMediaImages}")
     Log.i(LogTag, "[INFO] READ_MEDIA_VISUAL_USER_SELECTED: ${environmentInfo.readMediaVisualUserSelected}")
 }
 
-private fun queryImages(context: android.content.Context): List<ImageTestResult> {
+private fun queryImages(context: Context): List<ImageTestResult> {
     val projection = arrayOf(
         MediaStore.Images.Media._ID,
         MediaStore.Images.Media.DISPLAY_NAME,
@@ -361,7 +351,7 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
                 filtered.take(max)
             } else {
                 filtered
-                }
+            }
         }
 
         val allFiltered: List<Item> = ImageType.entries.map { filter(it, 3) }.flatten()
