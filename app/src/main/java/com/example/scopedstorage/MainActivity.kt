@@ -42,12 +42,12 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.bumptech.glide.Glide
 import com.example.scopedstorage.ui.theme.ScopedStorageCheckTheme
-import java.io.File
-import java.io.FileInputStream
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
 
 private const val LogTag = "MainActivity"
 
@@ -149,9 +149,7 @@ private fun ImageResultItem(result: ImageTestResult) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = "${result.type} / ${result.displayName}", style = MaterialTheme.typography.bodyLarge)
         Text(text = "dataPath: ${result.dataPath ?: "null"}")
-        Text(
-            text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}"
-        )
+        Text(text = "DateTaken: ${result.dateTaken ?: "null"} / DateAdded: ${result.dateAdded ?: "null"} / DateModified: ${result.dateModified ?: "null"} / Size: ${result.size ?: "null"}")
         Text(text = "FileExists: ${result.fileExists.toCheckMark()}")
         Text(text = "Uri I/O: ${result.canOpenUriInputStream.toCheckMark()} / File I/O: ${result.canOpenFileInputStream.toCheckMark()}")
         Text(text = "Glide(Uri/File): ${result.glideUriSuccess.toCheckMark()} / ${result.glideFileSuccess.toCheckMark()}")
@@ -249,7 +247,7 @@ private fun resolveRequestLegacyValue(context: Context): String {
     val flagEnabled = appInfo.flags and legacyFlagValue != 0
     return flagEnabled.toString()
 }
-
+// adb shell dumpsys package com.example.scopedstorage | grep requestLegacy
 private fun logPermissionStates(environmentInfo: EnvironmentInfo) {
     Log.i(LogTag, "[INFO] READ_EXTERNAL_STORAGE: ${environmentInfo.readExternalStorage}")
     Log.i(LogTag, "[INFO] READ_MEDIA_IMAGES: ${environmentInfo.readMediaImages}")
@@ -269,7 +267,6 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
 
     val contentResolver = context.contentResolver
     val imageLoader = ImageLoader(context)
-    val results = mutableListOf<ImageTestResult>()
     val cursor = contentResolver.query(
         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
         projection,
@@ -278,7 +275,7 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
         null
     )
 
-    cursor?.use { c ->
+    return cursor!!.use { c ->
         val columnIndices = projection.associateWith { column ->
             val index = c.getColumnIndex(column)
             if (index == -1) {
@@ -287,6 +284,20 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
             index
         }
 
+        data class Item(
+            val id: Long,
+            val displayName: String,
+            val type: ImageType,
+            val dataPath: String?,
+            val uri: android.net.Uri,
+            val dateTaken: Long?,
+            val dateAdded: Long?,
+            val dateModified: Long?,
+            val size: Long?,
+            val fileExists: Boolean,
+        )
+
+        val items = mutableListOf<Item>()
         while (c.moveToNext()) {
             val id = c.getLongOrNull(columnIndices[MediaStore.Images.Media._ID]) ?: continue
             val displayName = c.getStringOrNull(columnIndices[MediaStore.Images.Media.DISPLAY_NAME]).orEmpty()
@@ -299,8 +310,38 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
 
             val type = classifyImageType(dataPath)
             val fileExists = dataPath?.let { File(it).exists() } ?: false
-            val errors = mutableListOf<String>()
+            items.add(
+                Item(
+                    id = id,
+                    displayName = displayName,
+                    type = type,
+                    dataPath = dataPath,
+                    uri = uri,
+                    dateTaken = dateTaken,
+                    dateAdded = dateAdded,
+                    dateModified = dateModified,
+                    size = size,
+                    fileExists = fileExists,
+                )
+            )
+        }
 
+        // image type別に数件になるように絞る
+        fun filter(imageType: ImageType, max: Int): List<Item> {
+            val filtered = items.filter { it.type == imageType }
+            return if (filtered.size > max) {
+                filtered.take(max)
+            } else {
+                filtered
+                }
+        }
+
+        val allFiltered: List<Item> = ImageType.entries.map { filter(it, 3) }.flatten()
+
+        val results = allFiltered.map {
+            val errors = mutableListOf<String>()
+            val uri = it.uri
+            val dataPath = it.dataPath
             val canOpenUriInputStream = try {
                 contentResolver.openInputStream(uri)?.use { }
                 Log.i(LogTag, "[SUCCESS] Uri InputStream: $uri")
@@ -396,33 +437,29 @@ private fun queryImages(context: android.content.Context): List<ImageTestResult>
             } else {
                 false
             }
-
-            results.add(
-                ImageTestResult(
-                    id = id,
-                    displayName = displayName,
-                    type = type,
-                    dataPath = dataPath,
-                    uri = uri,
-                    dateTaken = dateTaken,
-                    dateAdded = dateAdded,
-                    dateModified = dateModified,
-                    size = size,
-                    fileExists = fileExists,
-                    canOpenUriInputStream = canOpenUriInputStream,
-                    canOpenFileInputStream = canOpenFileInputStream,
-                    glideUriSuccess = glideUriSuccess,
-                    glideFileSuccess = glideFileSuccess,
-                    coilUriSuccess = coilUriSuccess,
-                    coilFileSuccess = coilFileSuccess,
-                    errors = errors
-                )
+            ImageTestResult(
+                id = it.id,
+                displayName = it.displayName,
+                type = it.type,
+                dataPath = dataPath,
+                uri = uri,
+                dateTaken = it.dateTaken,
+                dateAdded = it.dateAdded,
+                dateModified = it.dateModified,
+                size = it.size,
+                fileExists = it.fileExists,
+                canOpenUriInputStream = canOpenUriInputStream,
+                canOpenFileInputStream = canOpenFileInputStream,
+                glideUriSuccess = glideUriSuccess,
+                glideFileSuccess = glideFileSuccess,
+                coilUriSuccess = coilUriSuccess,
+                coilFileSuccess = coilFileSuccess,
+                errors = errors
             )
         }
+        Log.i(LogTag, "[INFO] MediaStore query returned: ${results.size} images")
+        results
     }
-
-    Log.i(LogTag, "[INFO] MediaStore query returned: ${results.size} images")
-    return results
 }
 
 private fun classifyImageType(dataPath: String?): ImageType {
